@@ -87,6 +87,20 @@ return {
       local function set_render_markdown_highlights()
         vim.cmd [[highlight RenderMarkdownDash guifg=#D19A66 ]]
         vim.cmd [[highlight RenderMarkdownCode guibg=NONE ]]
+        -- 去掉标题 (#/##/...) 与行内代码 (`...`) 的背景色块，只保留前景色。
+        -- render-markdown 出厂默认把这两类底色链接到别的组，而配色方案确实
+        -- 给那些组配了背景，于是标题/行内代码就会带上整行色块:
+        --   RenderMarkdownH1Bg..H6Bg -> DiffText / DiffAdd / DiffChange /
+        --                                DiffDelete / Visual / CursorColumn
+        --   RenderMarkdownCodeInline -> 行内代码底色
+        -- (2026-10-11 移除 catppuccin 之前，这些组还被 catppuccin 的
+        --  render_markdown 集成改写成 darken(rainbow1..6) 与 surface0。)
+        -- 覆盖为 guibg=NONE 即可；matugen 重载会触发 ColorScheme 事件，
+        -- 本函数随该事件重跑，因此能自我修复，不必手动干预。
+        vim.cmd [[highlight RenderMarkdownCodeInline guibg=NONE ]]
+        for i = 1, 6 do
+          vim.cmd(('highlight RenderMarkdownH%dBg guibg=NONE'):format(i))
+        end
       end
       -- 初次设置
       set_render_markdown_highlights()
@@ -196,7 +210,11 @@ return {
           min_width = 0,
           -- Determines if a border is added above and below headings
           -- Can also be a list of booleans in which case the 'level' is used to index into the list using a clamp
-          border = true,
+          border = false,
+          -- 关闭标题上下边框。边框是把 ▄/▀ 铺满整行画出来的（heading.lua 的
+          -- Render:border），颜色取自 colors.bg_as_fg(标题背景组)。既然背景已
+          -- 置为 NONE，那个派生组便没有颜色，块字符会 fallback 到 Normal 的
+          -- 前景色，在浅色底上表现为上下两条深色实心带。原先为 true。
           -- Always use virtual lines for heading borders instead of attempting to use empty lines
           border_virtual = false,
           -- Highlight the start of the border using the foreground highlight

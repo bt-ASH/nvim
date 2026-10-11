@@ -80,15 +80,20 @@ return {
     "AstroNvim/astroui",
     ---@type AstroUIOpts
     opts = {
-      -- change colorscheme
-      colorscheme = "catppuccin",
+      -- 配色交给 Noctalia 的 base16 模板（matugen.lua），AstroUI 不设 colorscheme。
+      -- 原值为 "catppuccin"，2026-10-11 移除 catppuccin 后置为 false；
+      -- 若保持旧值，插件缺失时每次启动都会弹 "Error setting up colorscheme"。
+      colorscheme = false,
       status = {
         attributes = {
           buffer_active = { bold = false, italic = false },
         },
         colors = function(colors)
-          -- matugen 生成的配色（跟随壁纸），模板: ~/.config/matugen/templates/nvim-astroui.lua
-          local ok, matugen = pcall(dofile, vim.fn.stdpath "config" .. "/lua/user/matugen-astroui.lua")
+          -- buffer 配色来自 matugen.lua 的 M.status（跟随壁纸）
+          -- 模板: ~/.config/noctalia/templates/nvim.lua
+          -- 2026-10-11 之前由 lua/user/matugen-astroui.lua 单独生成，现已合并进 matugen.lua。
+          local ok, matugen = pcall(require, "matugen")
+          local status = ok and type(matugen) == "table" and matugen.status or nil
           local fallback = {
             buffer_fg = "#a5adce",
             buffer_active_bg = "#a6d189",
@@ -99,7 +104,7 @@ return {
             buffer_active_path_fg = "#51576d",
             buffer_visible_path_fg = "#51576d",
           }
-          return vim.tbl_extend("force", colors, ok and matugen or fallback)
+          return vim.tbl_extend("force", colors, status or fallback)
         end,
         components = {
           tabline_file_info = {
@@ -159,140 +164,6 @@ return {
         LSPLoading10 = "⠏",
       },
     },
-  },
-  {
-    "catppuccin/nvim",
-    name = "catppuccin",
-    priority = 1000,
-    opts = {
-      flavour = "frappe", -- latte, frappe, macchiato, mocha
-      transparent_background = true,
-      -- can find all color in : https://github.com/catppuccin/catppuccin/blob/main/docs/style-guide.md
-      -- but not the all color can use.
-      -- print color cmd :lua print(vim.inspect(require("catppuccin.palettes").get_palette("frappe")))
-      custom_highlights = function(colors)
-        return {
-          -- LineNr = { fg = colors.surface2 }, -- line number color
-          CursorLineNr = { fg = colors.peach }, -- current line number color (orange)
-          -- Visual = { bg = colors.overlay0 },
-          Search = { bg = colors.blue, fg = colors.base },
-          IncSearch = { bg = colors.pink, fg = colors.base },
-          CurSearch = { bg = colors.pink, fg = colors.base },
-          MatchParen = { bg = colors.peach, fg = colors.base, bold = true },
-        }
-      end,
-      integrations = {
-        barbar = true,
-        blink_cmp = true,
-        gitsigns = true,
-        mason = true,
-        noice = true,
-        notify = true,
-        nvimtree = true,
-        rainbow_delimiters = true,
-      },
-    },
-  },
-  {
-    "EdenEast/nightfox.nvim",
-  },
-  {
-    "sainnhe/everforest",
-  },
-  {
-    "morhetz/gruvbox",
-  },
-  {
-    "projekt0n/github-nvim-theme",
-  },
-  {
-    "NLKNguyen/papercolor-theme",
-  },
-  {
-    "marko-cerovac/material.nvim",
-    init = function() vim.g.material_style = "palenight" end,
-    config = function()
-      require("material").setup {
-        contrast = {
-          terminal = false, -- Enable contrast for the built-in terminal
-          sidebars = false, -- Enable contrast for sidebar-like windows ( for example Nvim-Tree )
-          floating_windows = false, -- Enable contrast for floating windows
-          cursor_line = false, -- Enable darker background for the cursor line
-          non_current_windows = false, -- Enable darker background for non-current windows
-          filetypes = {}, -- Specify which filetypes get the contrasted (darker) background
-        },
-        styles = {
-          -- Give comments style such as bold, italic, underline etc.
-          comments = { italic = true },
-          strings = { bold = true },
-          keywords = { underline = false },
-          functions = { bold = true, undercurl = false },
-          variables = {},
-          operators = {},
-          types = {},
-        },
-        plugins = { -- Uncomment the plugins that you use to highlight them
-          -- Available plugins:
-          "coc",
-          "colorful-winsep",
-          "dap",
-          "dashboard",
-          "eyeliner",
-          "fidget",
-          "flash",
-          "gitsigns",
-          "harpoon",
-          "hop",
-          "illuminate",
-          "indent-blankline",
-          "lspsaga",
-          "mini",
-          "neogit",
-          "neotest",
-          "neo-tree",
-          "neorg",
-          "noice",
-          "nvim-cmp",
-          "nvim-navic",
-          "nvim-tree",
-          "nvim-web-devicons",
-          "rainbow-delimiters",
-          "sneak",
-          "telescope",
-          "trouble",
-          "which-key",
-          "nvim-notify",
-        },
-        disable = {
-          colored_cursor = true, -- Disable the colored cursor
-          borders = false, -- Disable borders between verticaly split windows
-          background = false, -- Prevent the theme from setting the background (NeoVim then uses your terminal background)
-          term_colors = false, -- Prevent the theme from setting terminal colors
-          eob_lines = false, -- Hide the end-of-buffer lines
-        },
-        high_visibility = {
-          lighter = false, -- Enable higher contrast text for lighter style
-          darker = false, -- Enable higher contrast text for darker style
-        },
-        lualine_style = "default", -- Lualine style ( can be 'stealth' or 'default' )
-        async_loading = true, -- Load parts of the theme asyncronously for faster startup (turned on by default)
-        -- If you want to everride the default colors, set this to a function
-        -- custom_colors = nil,
-        custom_colors = function(colors)
-          -- colors.editor.selection = "#ff0000"
-        end,
-        -- change can refer here : https://github.com/marko-cerovac/material.nvim/issues/126
-        --
-        custom_highlights = {
-          IncSearch = { fg = "#000000", bg = "#ECF9ff", underline = true },
-          Search = { fg = "#000000", bg = "#ECF9ff", bold = true },
-          -- change hop-nvim color
-          HopNextKey = { fg = "#ff0000", bold = true },
-          -- HopNextKey1 = { fg = "#00ff00", bold = true },
-          -- HopNextKey2 = { fg = "#0000ff" },
-        }, -- Overwrite highlights with your own
-      }
-    end,
   },
   {
     "AstroNvim/astrocore",

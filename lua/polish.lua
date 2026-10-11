@@ -10,25 +10,11 @@ vim.opt.errorbells = false
 vim.opt.visualbell = true
 
 require("matugen_colors")
-vim.cmd.colorscheme "catppuccin"
-
--- define function to change color for catppuccin*
-local function set_diff_highlights()
-  vim.cmd [[
-    highlight DiffAdd    guibg=#496F4A
-    highlight DiffDelete guibg=#4A2E32 guifg=#E78284
-    highlight DiffChange   guibg=#000000 guifg=#aaaaaa gui=none
-    highlight DiffText     guibg=#cccccc guifg=#ff0000 gui=bold
-  ]]
-end
--- need set color once when start neovim
-if vim.g.colors_name:find "catppuccin" then set_diff_highlights() end
--- make auto change diff color when change colorscheme
-vim.api.nvim_create_autocmd("ColorScheme", {
-  pattern = "catppuccin*", -- pair all catppuccin theme（frappe, macchiato, etc）
-  callback = function() set_diff_highlights() end,
-  desc = "Override diff colors for Catppuccin",
-})
+-- 配色由 Noctalia 的 neovim 社区模板接管:
+--   ~/.local/state/noctalia/community-templates/neovim/matugen-template.lua
+--   -> 生成 ~/.config/nvim/lua/matugen.lua (base16 调色板, 跟随壁纸)
+-- 这里原先是 `colorscheme "catppuccin"` 加一套 catppuccin diff 配色覆盖,
+-- 已于 2026-10-11 移除, 避免深色 catppuccin 压掉 Noctalia 的浅色调色板。
 
 -- merge fillchars config, remain fold icon
 local fillchars = vim.opt.fillchars:get() or {}
@@ -449,9 +435,6 @@ vim.on_key(nil, vim.api.nvim_get_namespaces()["auto_hlsearch"])
 -- Set nofixeol and nofixendofline options
 vim.opt.fixeol = false
 vim.opt.fixendofline = false
-
--- 加载动态配色（由 matugen 生成）
-pcall(dofile, vim.fn.stdpath("config") .. "/lua/user/matugen-catppuccin.lua")
 
 -- Kitty 主题覆盖（在 matugen 之后加载，使 nvim 高亮匹配 current-theme.conf）
 require("kitty-theme")

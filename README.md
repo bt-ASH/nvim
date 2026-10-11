@@ -201,6 +201,7 @@
 | `,s` | Flash 跳转（Normal/Visual） |
 | `s f` / `s w` | 在当前文件搜索（spectre） |
 | `s F` / `s W` | 全目录搜索 |
+| `,A` | 全项目查找替换（输入 `查找/替换`，如 `logo/icons`） |
 | `,R` | 运行命令并显示输出 |
 | `,r` | SnipRun 代码片段（Visual 下运行选区） |
 | `md` | Markdown 预览 |
@@ -216,6 +217,37 @@
 | `[l` / `]l` | 上一个 / 下一个 loclist |
 | `[Space` / `]Space` | 光标上/下插入空行 |
 | `j` / `k` | 按屏幕行移动（软换行友好） |
+
+### `,A` 快速查找替换 —— 靠什么实现
+
+> 补充于 2026-10-11。入口 `lua/plugins/user/my_funcs/quick_replace.lua`，
+> 映射在 `lua/plugins/my_mappings.lua`。核心逻辑 `M.replace(root, find, repl)`
+> 与交互层 `M.run()` 分开，前者可直接调用/测试。
+
+流程：`,A` → 输入框填 `查找/替换`（也接受 `>` 分隔）→ 回车 → 通知列出范围与文件数
+→ 选「替换」/「取消」→ 完成后再通知改了几个文件、几处。
+
+| 环节 | 靠什么 |
+|---|---|
+| 定位范围 | `vim.fs.root(0, ".git")` 取 git 根；无 git 时退到当前文件所在目录，再退到 CWD |
+| 列出候选文件 | `rg --files-with-matches --fixed-strings`，经 `vim.system(...):wait()` 同步调用 |
+| 实际替换 | `io.open(path,"rb")` 读全集 → `string.gsub(vim.pesc(find), function() return repl end)` → `io.open(path,"wb")` 写回 |
+| 刷新已开 buffer | `nvim_buf_call` + `:edit!`（仅未修改的 buffer），再 `:checktime` |
+
+几个刻意的设计：
+
+- **字面量替换，不走正则。** `vim.pesc` 转义查找词，替换体用「函数」而非字符串，
+  所以 `a.b` 里的 `.` 是普通字符，替换文本里的 `%` 也不会被当成捕获组引用。
+- **字节级读写。** 用 `rb`/`wb` 而不是 `readfile`/`writefile`，不会动行尾符
+  （配置里 `fixeol=false`）和编码。
+- **只认 `rg` 的结果。** 因此 `.gitignore` 覆盖的文件不会被改到（实测 `ignored.txt` 不受影响）。
+- **过宽护栏。** 范围解析成 `$HOME` 本身、`/`、或 `$HOME` 的祖先目录时直接拒绝。
+  2026-10-11 在这里出过事故：范围静默回退到 CWD 且 CWD 就是 `$HOME`，
+  误改 83 个文件 / 638 处（`logo`→`icons`）。
+- **不弹多行 `confirm`。** 长消息在 noice.nvim 下会先被当成 message 渲染、
+  与对话框抢按键（表现为「弹两次是否」且确认失败），所以文件清单走 `vim.notify`、
+  决策走单行 `vim.ui.select`。
+- **不进 undo 栈。** 改动直接落盘，所以动手前先提交 git；出错只能靠版本控制回退。
 
 ## 自定义文本处理
 
@@ -247,7 +279,7 @@
 | `C-S` | 签名帮助 |
 | `Tab` / `S-Tab` | 跳转 snippet（blink.cmp） |
 
-## 折叠
+###### 折叠
 
 | 按键 | 功能 |
 |---|---|

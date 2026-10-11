@@ -125,6 +125,14 @@ return {
             silent = true,
           },
 
+          -- quick replace：输入 查找/替换（例 logo/icons），全项目替换
+          ["<Leader>A"] = {
+            "<cmd>lua require('plugins.user.my_funcs.quick_replace').run()<cr>",
+            desc = "Quick Replace (查找/替换)",
+            noremap = true,
+            silent = true,
+          },
+
           -- delete empty lines
           ["<Leader>lc"] = {
             "<cmd>lua require('plugins.user.my_funcs.delete_empty_lines').delete_empty_lines()<CR>",
