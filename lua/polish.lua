@@ -1,0 +1,458 @@
+-- if true then return end -- WARN: REMOVE THIS LINE TO ACTIVATE THIS FILE
+
+local make_repeatable = require("plugins.user.my_funcs.repeat").make_repeatable
+
+-- This will run last in the setup process.
+-- This is just pure lua so anything that doesn't
+-- fit in the normal config locations above can go here
+
+vim.opt.errorbells = false
+vim.opt.visualbell = true
+
+require("matugen_colors")
+vim.cmd.colorscheme "catppuccin"
+
+-- define function to change color for catppuccin*
+local function set_diff_highlights()
+  vim.cmd [[
+    highlight DiffAdd    guibg=#496F4A
+    highlight DiffDelete guibg=#4A2E32 guifg=#E78284
+    highlight DiffChange   guibg=#000000 guifg=#aaaaaa gui=none
+    highlight DiffText     guibg=#cccccc guifg=#ff0000 gui=bold
+  ]]
+end
+-- need set color once when start neovim
+if vim.g.colors_name:find "catppuccin" then set_diff_highlights() end
+-- make auto change diff color when change colorscheme
+vim.api.nvim_create_autocmd("ColorScheme", {
+  pattern = "catppuccin*", -- pair all catppuccin theme（frappe, macchiato, etc）
+  callback = function() set_diff_highlights() end,
+  desc = "Override diff colors for Catppuccin",
+})
+
+-- merge fillchars config, remain fold icon
+local fillchars = vim.opt.fillchars:get() or {}
+vim.opt.fillchars = vim.tbl_extend("force", fillchars, {
+  horiz = "═",
+  horizup = "╩",
+  horizdown = "╦",
+  vert = "║",
+  vertleft = "╣",
+  vertright = "╠",
+  verthoriz = "╬",
+})
+
+-- toggle snacks image show
+-- Ref: https://github.com/folke/snacks.nvim/issues/1739#issuecomment-3413850508
+--
+-- NOTE: The on_lines callback from vim.api.nvim_buf_attach is NOT an autocmd,
+-- so clearing augroups doesn't stop it. We monkey-patch Snacks.image.placement.new
+-- to respect snacks_disabled flag.
+--
+-- Store original placement.new function
+local original_placement_new = nil
+local dummy_id = 0
+-- Create a dummy placement object that satisfies inline.lua's expectations
+local function create_dummy_placement(src)
+  dummy_id = dummy_id + 1
+  return {
+    id = dummy_id,
+    eids = {},
+    img = { src = src },
+    opts = {},
+    closed = true,
+    close = function(self) end,
+    update = function(self) end,
+    show = function(self) end,
+    hide = function(self) end,
+  }
+end
+local disable_snacks_image = function()
+  -- Some group names depend on image ID so we find them based on their events
+  local events = {
+    "BufWinEnter",
+    "WinEnter",
+    "BufWinLeave",
+    "BufEnter",
+    "WinClosed",
+    "WinNew",
+    "WinResized",
+    "BufWritePost",
+    "WinScrolled",
+    "ModeChanged",
+    "CursorMoved",
+    "BufWipeout",
+    "BufDelete",
+    "BufWriteCmd",
+    "FileType",
+    "BufReadCmd",
+  }
+  local all_autocmds = vim.api.nvim_get_autocmds { event = events }
+  local image_autocmds = {}
+  local group_set = {}
+  for _, autocmd in ipairs(all_autocmds) do
+    if autocmd.group_name ~= nil and string.find(autocmd.group_name, "snacks.image", 1, true) then
+      image_autocmds[#image_autocmds + 1] = autocmd
+      group_set[autocmd.group_name] = true
+    end
+  end
+  -- Save autocmds and augroups for when it is time to re-enable
+  _G.image_autocmds = image_autocmds
+  _G.image_augroups = group_set
+  -- Clean buffer and clear augroups
+  Snacks.image.placement.clean()
+  for group, _ in pairs(group_set) do
+    vim.api.nvim_create_augroup(group, { clear = true })
+  end
+  -- Monkey-patch placement.new to block new image creation
+  if not original_placement_new then
+    original_placement_new = Snacks.image.placement.new
+    Snacks.image.placement.new = function(buf, src, opts)
+      if _G.snacks_disabled then return create_dummy_placement(src) end
+      return original_placement_new(buf, src, opts)
+    end
+  end
+  -- For toggle
+  _G.snacks_disabled = true
+end
+-- Re-enable snacks.image after it was disabled
+-- The function re-creates all autocmds and then re-attaches all buffers that were attached
+local enable_snacks_image = function()
+  -- Restore original placement.new
+  if original_placement_new then Snacks.image.placement.new = original_placement_new end
+  -- Re-create the groups
+  for group, _ in pairs(image_augroups) do
+    vim.api.nvim_create_augroup(group, { clear = true })
+  end
+  -- Re-create autocmds. Some keys need to be cleared or modified
+  -- so that format from get_autocmds works with create_autocmd
+  for _, autocmd in ipairs(image_autocmds) do
+    autocmd.group = autocmd.group_name
+    if autocmd.command == "" then autocmd.command = nil end
+    autocmd.group_name = nil
+    local event = autocmd.event
+    autocmd.event = nil
+    autocmd.id = nil
+    if autocmd.buflocal then autocmd.pattern = nil end
+    autocmd.buflocal = nil
+    vim.api.nvim_create_autocmd(event, autocmd)
+  end
+  -- Loop over buffers and enable those with compatible filetype
+  local bufs = vim.api.nvim_list_bufs()
+  local langs = Snacks.image.langs()
+  for _, buf in ipairs(bufs) do
+    local ft = vim.bo[buf].filetype
+    local lang = vim.treesitter.language.get_lang(ft)
+    if vim.tbl_contains(langs, lang) then
+      -- Make sure the buffer is detached otherwise attach does nothing
+      vim.b[buf].snacks_image_attached = false
+      Snacks.image.doc.attach(buf)
+    end
+  end
+  _G.snacks_disabled = false
+end
+local toggle_snacks_image = function()
+  if snacks_disabled == nil then _G.snacks_disabled = false end
+  if snacks_disabled then
+    enable_snacks_image()
+  else
+    disable_snacks_image()
+  end
+end
+
+local function toggle_render()
+  if vim.bo.filetype == "markdown" then
+    vim.cmd "RenderMarkdown toggle"
+    toggle_snacks_image()
+  elseif vim.bo.filetype == "csv" then
+    vim.cmd "CsvViewToggle display_mode=border"
+  else
+    vim.cmd "Neogen"
+  end
+end
+
+local mappings = require "mappings"
+mappings.set_mappings {
+  n = {
+    -- delete comments
+    ["<leader>Q"] = {
+      ":tabclose<cr>",
+      desc = "Close Tab",
+      noremap = true,
+      silent = true,
+    },
+    ["<leader>ld"] = {
+      "<cmd>lua require('plugins.user.my_funcs.delete_comments').delete_comments()<cr>",
+      desc = "Delete Comments",
+      noremap = true,
+      silent = true,
+    },
+    ["<leader>ln"] = {
+      "<cmd>lua require('plugins.user.my_funcs.insert_blank_lines').insert_blank_lines()<cr>",
+      desc = "Insert Blank Lines",
+      noremap = true,
+      silent = true,
+    },
+    ["<C-/>"] = {
+      toggle_render,
+      desc = "Toggle Render",
+    },
+    ["<C-_>"] = {
+      toggle_render,
+      desc = "Toggle Render",
+    },
+    -- treesitter class navigation
+    ["]c"] = {
+      function() require("nvim-treesitter-textobjects.move").goto_next_start("@class.outer", "textobjects") end,
+      desc = "Next class start",
+    },
+    ["]C"] = {
+      function() require("nvim-treesitter-textobjects.move").goto_next_end("@class.outer", "textobjects") end,
+      desc = "Next class end",
+    },
+    ["[c"] = {
+      function() require("nvim-treesitter-textobjects.move").goto_previous_start("@class.outer", "textobjects") end,
+      desc = "Prev class start",
+    },
+    ["[C"] = {
+      function() require("nvim-treesitter-textobjects.move").goto_previous_end("@class.outer", "textobjects") end,
+      desc = "Prev class end",
+    },
+    -- treesitter class swap
+    [">C"] = {
+      function() require("nvim-treesitter-textobjects.swap").swap_next("@class.outer", "textobjects") end,
+      desc = "Swap next class",
+    },
+    ["<C"] = {
+      function() require("nvim-treesitter-textobjects.swap").swap_previous("@class.outer", "textobjects") end,
+      desc = "Swap prev class",
+    },
+    ["gn"] = {
+      make_repeatable(function() Snacks.words.jump(1, true) end),
+      expr = true,
+      desc = "Next Reference",
+    },
+    ["gp"] = {
+      make_repeatable(function() Snacks.words.jump(-1, true) end),
+      expr = true,
+      desc = "Prev Reference",
+    },
+
+    -- fold commands
+    ["za"] = {
+      make_repeatable(function()
+        local ok, err = pcall(vim.cmd, "normal! za")
+        if not ok then vim.notify("No fold found", vim.log.levels.WARN) end
+      end),
+      expr = true,
+      desc = "Toggle fold",
+    },
+    ["zc"] = {
+      make_repeatable(function()
+        local ok, err = pcall(vim.cmd, "normal! zc")
+        if not ok then vim.notify("No fold found", vim.log.levels.WARN) end
+      end),
+      expr = true,
+      desc = "Close fold",
+    },
+    ["zo"] = {
+      make_repeatable(function()
+        local ok, err = pcall(vim.cmd, "normal! zo")
+        if not ok then vim.notify("No fold found", vim.log.levels.WARN) end
+      end),
+      expr = true,
+      desc = "Open fold",
+    },
+    ["zA"] = {
+      make_repeatable(function()
+        local ok, err = pcall(vim.cmd, "normal! zA")
+        if not ok then vim.notify("No fold found", vim.log.levels.WARN) end
+      end),
+      expr = true,
+      desc = "Toggle fold recursively",
+    },
+    ["zC"] = {
+      make_repeatable(function()
+        local ok, err = pcall(vim.cmd, "normal! zC")
+        if not ok then vim.notify("No fold found", vim.log.levels.WARN) end
+      end),
+      expr = true,
+      desc = "Close fold recursively",
+    },
+    ["zO"] = {
+      make_repeatable(function()
+        local ok, err = pcall(vim.cmd, "normal! zO")
+        if not ok then vim.notify("No fold found", vim.log.levels.WARN) end
+      end),
+      expr = true,
+      desc = "Open fold recursively",
+    },
+
+    ["<c-g>"] = {
+      function()
+        local full_path = vim.fn.expand "%:p"
+        local total_lines = vim.fn.line "$"
+        local current_line = vim.fn.line "."
+        local percent = math.modf((current_line / total_lines) * 100)
+        vim.notify(string.format('"%s" %d lines --%d%%--', full_path, total_lines, percent), vim.log.levels.INFO)
+      end,
+      noremap = true,
+      silent = true,
+    },
+
+    -- debug dap
+    ["<Leader>da"] = { function() require("dap-view").add_expr() end, desc = "Add expression" },
+    ["<Leader>dE"] = false,
+    ["<Leader>dR"] = { function() require("dap").run_last() end, desc = "Run last" },
+    ["<Leader>dh"] = {
+      function() require("dap.ui.widgets").hover(nil, { border = "rounded" }) end,
+      desc = "Widgets hover",
+    },
+    ["<Leader>di"] = { function() require("dap").focus_frame() end, desc = "Focus frame" },
+    ["<Leader>dj"] = {
+      make_repeatable(function() require("dap").step_into() end),
+      expr = true,
+      desc = "Step into (F11)",
+    },
+    ["<Leader>dJ"] = {
+      make_repeatable(function() require("dap").step_over() end),
+      expr = true,
+      desc = "Step over (F10)",
+    },
+    ["<Leader>do"] = {
+      make_repeatable(function() require("dap").step_out() end),
+      expr = true,
+      desc = "Step out (S-F11)",
+    },
+    ["<Leader>dO"] = false,
+    ["<Leader>dC"] = {
+      make_repeatable(function() require("dap").run_to_cursor() end),
+      expr = true,
+      desc = "Run to cursor",
+    },
+    ["<a-p>"] = { function() require("dap.ui.widgets").preview() end, desc = "Widgets preview" },
+    ["<Leader>dn"] = {
+      make_repeatable(function()
+        local breakpoints = require "dap.breakpoints"
+        local bufnr = vim.api.nvim_get_current_buf()
+        local cur_line = vim.api.nvim_win_get_cursor(0)[1]
+        local bps = breakpoints.get(bufnr)[bufnr] or {}
+        table.sort(bps, function(a, b) return a.line < b.line end)
+        for _, bp in ipairs(bps) do
+          if bp.line > cur_line then
+            vim.api.nvim_win_set_cursor(0, { bp.line, 0 })
+            return
+          end
+        end
+        -- wrap around to first breakpoint
+        if #bps > 0 then vim.api.nvim_win_set_cursor(0, { bps[1].line, 0 }) end
+      end),
+      expr = true,
+      desc = "Next breakpoint",
+    },
+    ["<Leader>dp"] = {
+      make_repeatable(function()
+        local breakpoints = require "dap.breakpoints"
+        local bufnr = vim.api.nvim_get_current_buf()
+        local cur_line = vim.api.nvim_win_get_cursor(0)[1]
+        local bps = breakpoints.get(bufnr)[bufnr] or {}
+        table.sort(bps, function(a, b) return a.line > b.line end)
+        for _, bp in ipairs(bps) do
+          if bp.line < cur_line then
+            vim.api.nvim_win_set_cursor(0, { bp.line, 0 })
+            return
+          end
+        end
+        -- wrap around to last breakpoint
+        if #bps > 0 then vim.api.nvim_win_set_cursor(0, { bps[1].line, 0 }) end
+      end),
+      expr = true,
+      desc = "Prev breakpoint",
+    },
+  },
+  v = {
+    -- delete comments
+    ["<leader>ld"] = {
+      "<cmd>lua require('plugins.user.my_funcs.delete_comments').delete_comments('v')<cr>",
+      desc = "Delete Comments",
+      noremap = true,
+      silent = true,
+    },
+    ["<leader>ln"] = {
+      "<cmd>lua require('plugins.user.my_funcs.insert_blank_lines').insert_blank_lines('v')<cr>",
+      desc = "Insert Blank Lines",
+      noremap = true,
+      silent = true,
+    },
+  },
+}
+
+-- use for some terminal only support osc52 copy but not paste
+local function paste()
+  return {
+    vim.fn.split(vim.fn.getreg "", "\n"),
+    vim.fn.getregtype "",
+  }
+end
+
+-- ref: https://www.cnblogs.com/sxrhhh/p/18234652/neovim-copy-anywhere
+-- 本地环境判断 SSH_CONNECTION 在 tmux 下也有用，SSH_TTY 有时会失效
+-- 远程环境（SSH）才走 OSC 52；本地交给系统/tmux 即可，
+-- 否则 OSC 52 的 paste provider 会在打开 buffer 时把系统剪贴板内容自动写进去。
+if os.getenv "SSH_CONNECTION" ~= nil then
+  -- remote env
+  vim.g.clipboard = {
+    name = "OSC 52",
+    copy = {
+      ["+"] = require("vim.ui.clipboard.osc52").copy "+",
+      ["*"] = require("vim.ui.clipboard.osc52").copy "*",
+    },
+    paste = {
+      ["+"] = paste,
+      ["*"] = paste,
+    },
+  }
+end
+
+-- 禁用中键粘贴：ghostty copy-on-select 会让拖选文本进入 primary selection，
+-- 随后在 nvim 窗格中的中键点击（含触摸板多指点击）会把刚复制的内容粘进 buffer
+vim.keymap.set({ "n", "i", "v", "x", "s", "t" }, "<MiddleMouse>", "<Nop>", { desc = "Disable middle-click paste" })
+
+-- ref: help jumplist-stack
+-- ref: https://www.bilibili.com/video/BV132qUY4EhS/
+vim.opt.jumpoptions = "stack"
+
+-- set for vim exec shell cmd
+-- vim.o.shellcmdflag = "-ci"
+vim.o.shellcmdflag = "-c"
+
+-- minimal number of screen lines
+vim.o.scrolloff = 5 -- keep above and below the cursor.
+vim.o.sidescrolloff = 8 -- keep left and right of the cursor.
+
+-- NOTE: gxt: Astronvim Feature_or_Bug?
+-- https://www.reddit.com/r/AstroNvim/comments/108cir5/keep_word_search_highlighting/
+-- https://github.com/AstroNvim/AstroNvim/issues/2109
+vim.on_key(nil, vim.api.nvim_get_namespaces()["auto_hlsearch"])
+
+-- For astronvim v5 not set fold by myself so don't need to set anymore
+-- set for ufo and statuscol
+-- https://github.com/kevinhwang91/nvim-ufo/issues/4#issuecomment-1512772530
+-- vim.o.foldcolumn = "1" -- '0' is not bad
+-- vim.o.foldlevel = 99 -- Using ufo provider need a large value, feel free to decrease the value
+-- vim.o.foldlevelstart = 99
+-- vim.o.foldenable = true
+-- vim.o.fillchars = [[eob: ,fold: ,foldopen:,foldsep: ,foldclose:]]
+-- larger icon
+-- vim.o.fillchars = [[eob: ,fold: ,foldopen:,foldsep: ,foldclose:]]
+
+-- Set nofixeol and nofixendofline options
+vim.opt.fixeol = false
+vim.opt.fixendofline = false
+
+-- 加载动态配色（由 matugen 生成）
+pcall(dofile, vim.fn.stdpath("config") .. "/lua/user/matugen-catppuccin.lua")
+
+-- Kitty 主题覆盖（在 matugen 之后加载，使 nvim 高亮匹配 current-theme.conf）
+require("kitty-theme")
+
