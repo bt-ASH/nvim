@@ -10,22 +10,22 @@ local M = {}
 
 function M.setup()
   require('base16-colorscheme').setup({
-    base00 = '#d7e7f4',
-    base01 = '#c8deef',
-    base02 = '#c0d9ed',
-    base03 = '#6d8699',
-    base04 = '#4f5458',
-    base05 = '#181a1b',
-    base06 = '#181a1b',
-    base07 = '#181a1b',
-    base08 = '#fd4663',
-    base09 = '#53288b',
-    base0A = '#2932a3',
-    base0B = '#227dc3',
-    base0C = '#461b7e',
-    base0D = '#175482',
-    base0E = '#1b227e',
-    base0F = '#1f29ad',
+    base00 = '#fff8f8',
+    base01 = '#faeaef',
+    base02 = '#f4e4e9',
+    base03 = '#85727a',
+    base04 = '#524249',
+    base05 = '#21191d',
+    base06 = '#21191d',
+    base07 = '#21191d',
+    base08 = '#ba1a1a',
+    base09 = '#9d4324',
+    base0A = '#7c5267',
+    base0B = '#963f71',
+    base0C = '#ffb59e',
+    base0D = '#ffafd6',
+    base0E = '#edb8d0',
+    base0F = '#ffd8e8',
   })
 
   local hi = function(group, opts)
@@ -33,28 +33,28 @@ function M.setup()
   end
 
   -- telescope.nvim
-  hi('TelescopeNormal',         { fg = '#181a1b',          bg = '#d7e7f4' })
-  hi('TelescopeBorder',         { fg = '#6d8699',             bg = '#d7e7f4' })
-  hi('TelescopePromptNormal',   { fg = '#181a1b',          bg = '#d7e7f4' })
-  hi('TelescopePromptBorder',   { fg = '#6d8699',             bg = '#d7e7f4' })
-  hi('TelescopePromptPrefix',   { fg = '#227dc3',             bg = '#d7e7f4' })
-  hi('TelescopePromptCounter',  { fg = '#4f5458',  bg = '#d7e7f4' })
-  hi('TelescopePromptTitle',    { fg = '#d7e7f4',             bg = '#227dc3' })
-  hi('TelescopePreviewTitle',   { fg = '#d7e7f4',             bg = '#2932a3' })
-  hi('TelescopeResultsTitle',   { fg = '#d7e7f4',             bg = '#53288b' })
-  hi('TelescopeSelection',      { fg = '#181a1b',          bg = '#c0d9ed' })
-  hi('TelescopeSelectionCaret', { fg = '#227dc3',             bg = '#c0d9ed' })
-  hi('TelescopeMatching',       { fg = '#227dc3',             bold = true })
+  hi('TelescopeNormal',         { fg = '#21191d',          bg = '#fff8f8' })
+  hi('TelescopeBorder',         { fg = '#85727a',             bg = '#fff8f8' })
+  hi('TelescopePromptNormal',   { fg = '#21191d',          bg = '#fff8f8' })
+  hi('TelescopePromptBorder',   { fg = '#85727a',             bg = '#fff8f8' })
+  hi('TelescopePromptPrefix',   { fg = '#963f71',             bg = '#fff8f8' })
+  hi('TelescopePromptCounter',  { fg = '#524249',  bg = '#fff8f8' })
+  hi('TelescopePromptTitle',    { fg = '#fff8f8',             bg = '#963f71' })
+  hi('TelescopePreviewTitle',   { fg = '#fff8f8',             bg = '#7c5267' })
+  hi('TelescopeResultsTitle',   { fg = '#fff8f8',             bg = '#9d4324' })
+  hi('TelescopeSelection',      { fg = '#21191d',          bg = '#f4e4e9' })
+  hi('TelescopeSelectionCaret', { fg = '#963f71',             bg = '#f4e4e9' })
+  hi('TelescopeMatching',       { fg = '#963f71',             bold = true })
 
   -- mini.pick
-  hi('MiniPickNormal',         { fg = '#181a1b',          bg = '#d7e7f4' })
-  hi('MiniPickBorder',         { fg = '#6d8699',             bg = '#d7e7f4' })
-  hi('MiniPickPrompt',   { fg = '#181a1b',          bg = '#d7e7f4' })
-  hi('MiniPickPromptPrefix',   { fg = '#227dc3',             bg = '#d7e7f4' })
-  hi('MiniPickBorderText',    { fg = '#d7e7f4',             bg = '#227dc3' })
-  hi('MiniPickMatchCurrent',      { fg = '#181a1b',          bg = '#c0d9ed' })
-  hi('MiniPickPromptCaret', { fg = '#227dc3',             bg = '#c0d9ed' })
-  hi('MiniPickMatchRanges',       { fg = '#227dc3',             bold = true })
+  hi('MiniPickNormal',         { fg = '#21191d',          bg = '#fff8f8' })
+  hi('MiniPickBorder',         { fg = '#85727a',             bg = '#fff8f8' })
+  hi('MiniPickPrompt',   { fg = '#21191d',          bg = '#fff8f8' })
+  hi('MiniPickPromptPrefix',   { fg = '#963f71',             bg = '#fff8f8' })
+  hi('MiniPickBorderText',    { fg = '#fff8f8',             bg = '#963f71' })
+  hi('MiniPickMatchCurrent',      { fg = '#21191d',          bg = '#f4e4e9' })
+  hi('MiniPickPromptCaret', { fg = '#963f71',             bg = '#f4e4e9' })
+  hi('MiniPickMatchRanges',       { fg = '#963f71',             bold = true })
 end
 
 -- astroui 状态栏/标签栏 buffer 配色。
@@ -63,17 +63,17 @@ end
 -- 消费方: ~/.config/nvim/lua/plugins/astroui.lua 的 status.colors 函数。
 M.status = {
   -- 普通/不可见 buffer 的文字
-  buffer_fg = '#4f5458',
+  buffer_fg = '#524249',
   -- 当前聚焦 buffer（主题色背景）
-  buffer_active_bg = '#227dc3',
-  buffer_active_fg = '#0a0a0b',
+  buffer_active_bg = '#963f71',
+  buffer_active_fg = '#ffffff',
   -- 可见但未聚焦 buffer（同色系弱化版）
-  buffer_visible_bg = '#b2cfe6',
-  buffer_visible_fg = '#11293b',
+  buffer_visible_bg = '#d674a9',
+  buffer_visible_fg = '#58083d',
   -- 路径颜色（在主题色背景上仍需可读）
-  buffer_path_fg = '#6d8699',
-  buffer_active_path_fg = '#b2cfe6',
-  buffer_visible_path_fg = '#6d8699',
+  buffer_path_fg = '#85727a',
+  buffer_active_path_fg = '#d674a9',
+  buffer_visible_path_fg = '#85727a',
 }
 
 -- Register a signal handler for SIGUSR1 (matugen updates).
